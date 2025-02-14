@@ -1,0 +1,191 @@
+Importing Data from AWS S3 to Snowflake & Performing Data Transformations
+1. Configuring AWS and Snowflake Integration
+Before importing data, we need to set up an integration between AWS S3 and Snowflake.
+
+Step 1: Create Storage Integration in Snowflake
+This step establishes a connection between Snowflake and AWS S3.
+
+Code:
+CREATE OR REPLACE STORAGE INTEGRATION PBI_Integration
+TYPE = EXTERNAL_STAGE
+STORAGE_PROVIDER='S3'
+ENABLED=TRUE
+STORAGE_AWS_ROLE_ARN='arn:aws:iam::590183679458:role/powerbi-test-role'
+STORAGE_ALLOWED_LOCATIONS=('S3://powerbi-001/')
+COMMENT='Optional Comment';
+
+Step 2: Verify the Integration
+Checking if the integration was successfully created.
+
+Code:
+DESC INTEGRATION PBI_Integration;
+
+2. Creating a Database, Schema, and Table in Snowflake
+Creating a database, schema, and table structure for storing imported data.
+
+Step 3: Creating Database and Schema
+
+Code:
+CREATE DATABASE powerbi;
+CREATE SCHEMA powerbischema;
+
+Step 4: Creating Table Structure
+Defining the table to store the agricultural dataset.
+
+Code:
+CREATE TABLE powerbidata(
+    Year INT,
+    Location STRING,
+    Area INT,
+    Rainfall FLOAT,
+    Temperature FLOAT,
+    Soil_type STRING,
+    Irrigation STRING,
+    Yields INT,
+    Humidity FLOAT,
+    Crops STRING,
+    Price INT,
+    Season STRING
+);
+
+Step 5: Verifying Table Creation
+
+Code:
+SELECT * FROM powerbidata;
+
+3. Creating an External Stage in Snowflake
+An external stage allows Snowflake to access files stored in AWS S3.
+
+Step 6: Create Stage for S3 Bucket
+
+Code:
+CREATE STAGE powerbi.powerbischema.s1
+URL ='s3://powerbi-001'
+STORAGE_INTEGRATION=PBI_Integration;
+
+Step 7: Describe the Stage (Optional)
+
+Code:
+DESC STAGE powerbi.powerbischema.s1;
+
+4. Loading Data from S3 into Snowflake Table
+now copy data from the S3 bucket into the powerbidata table.
+
+Step 8: Copy Data from S3 to Snowflake
+
+Code:
+COPY INTO powerbidata
+FROM @powerbi.powerbischema.s1
+FILE_FORMAT =(TYPE=CSV FIELD_DELIMITER=',' SKIP_HEADER=1)
+ON_ERROR='CONTINUE';
+
+Step 9: Verify Data Load
+
+Code:
+SELECT * FROM powerbidata;
+
+
+5. Data Exploration and Aggregation
+performing a simple aggregation to check data distribution.
+
+Step 10: Counting Entries per Year
+
+Code:
+SELECT Year, COUNT(*) AS count_of_year 
+FROM powerbidata 
+GROUP BY Year 
+ORDER BY Year;
+
+6. Creating a Copy of Data for Transformation
+create a new table to perform transformations.
+
+Step 11: Creating a New Table for Transformation
+
+Code:
+
+CREATE TABLE agriculture AS 
+SELECT * FROM powerbidata;
+
+
+Step 12: Verifying the Copied Table
+
+Code:
+SELECT * FROM agriculture;
+
+
+7. Performing Data Transformations
+Modifing the dataset by updating certain values.
+
+Step 13: Increase Rainfall by 10%
+
+Code:
+
+UPDATE agriculture 
+SET Rainfall = Rainfall * 1.1;
+
+Step 14: Reduce Area by 10%
+Code:
+
+UPDATE agriculture 
+SET Area = Area * 0.9;
+
+8. Creating Year-Based Categorization
+Categorizing records based on the year.
+
+Step 15: Add a New Column for Year Groups
+Code:
+
+ALTER TABLE agriculture 
+ADD Year_Group STRING;
+
+Step 16: Assigning Year Groups
+Code:
+UPDATE agriculture 
+SET Year_Group = 'Y1' WHERE Year >= 2004 AND Year <= 2009;
+
+UPDATE agriculture 
+SET Year_Group = 'Y2' WHERE Year >= 2010 AND Year <= 2015;
+
+UPDATE agriculture 
+SET Year_Group = 'Y3' WHERE Year >= 2015 AND Year <= 2019;
+
+9. Categorizing Rainfall Data
+We further categorize rainfall into groups.
+
+Step 17: Adding a Rainfall Group Column
+
+Code:
+ALTER TABLE agriculture 
+ADD COLUMN Rainfall_Groups STRING;
+
+Step 18: Assigning Rainfall Categories
+
+Code:
+UPDATE agriculture 
+SET Rainfall_Groups = 'Very Low' WHERE Rainfall < 255;
+
+UPDATE agriculture 
+SET Rainfall_Groups = 'Low' WHERE Rainfall >= 255 AND Rainfall <= 1200;
+
+UPDATE agriculture 
+SET Rainfall_Groups = 'Medium' WHERE Rainfall > 1200 AND Rainfall <= 2800;
+
+UPDATE agriculture 
+SET Rainfall_Groups = 'High' WHERE Rainfall > 2800 AND Rainfall <= 4103;
+
+UPDATE agriculture 
+SET Rainfall_Groups = 'Very High' WHERE Rainfall > 4103;
+
+10. Verify Final Data
+
+Step 19: Viewing the Transformed Data
+Code:
+SELECT * FROM agriculture;
+
+Conclusion:
+This process successfully imports data from AWS S3 to Snowflake, performs transformations such as:
+
+Adjusting numerical values (Rainfall & Area)
+Creating year group classifications
+Categorizing Rainfall into groups
+These transformed datasets can be used for further analysis and reporting in Power BI.
